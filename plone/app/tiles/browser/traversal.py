@@ -54,12 +54,13 @@ class TileTraverser(object):
             if tile_info is None:
                 raise KeyError(name)
 
-            self.view = queryMultiAdapter((self.context, self.request,
-                                           tile_info), self.targetInterface,
+            self.view = queryMultiAdapter(
+                (self.context, self.request, tile_info),
+                self.targetInterface,
                 name=name)
             if self.view is None:
-                self.view = queryMultiAdapter((self.context, self.request,
-                                               tile_info),
+                self.view = queryMultiAdapter(
+                    (self.context, self.request, tile_info),
                     self.targetInterface)
 
             if self.view is None:

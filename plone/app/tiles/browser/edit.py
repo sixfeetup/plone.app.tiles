@@ -12,7 +12,7 @@ from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 from plone.tiles.interfaces import ITileDataManager
 
 from plone.app.tiles.browser.base import TileForm
-from plone.app.tiles.utils import appendJSONData, getEditTileURL
+from plone.app.tiles.utils import appendJSONData
 from plone.app.tiles import MessageFactory as _
 
 
@@ -23,6 +23,8 @@ class DefaultEditForm(TileForm, form.Form):
     This form is capable of rendering the fields of any tile schema as defined
     by an ITileType utility.
     """
+
+    name = "edit_tile"
 
     # Set during traversal
     tileType = None
@@ -74,7 +76,8 @@ class DefaultEditForm(TileForm, form.Form):
         typeName = self.tileType.__name__
 
         # Traverse to a new tile in the context, with no data
-        tile = self.context.restrictedTraverse('@@%s/%s' % (typeName, self.tileId,))
+        tile = self.context.restrictedTraverse(
+                '@@%s/%s' % (typeName, self.tileId,))
 
         dataManager = ITileDataManager(tile)
         dataManager.set(data)
@@ -82,31 +85,18 @@ class DefaultEditForm(TileForm, form.Form):
         # Look up the URL - we need to do this after we've set the data to
         # correctly account for transient tiles
         tileURL = absoluteURL(tile, self.request)
-        contextURL = absoluteURL(tile.context, self.request)
-        tileRelativeURL = tileURL
 
-        if tileURL.startswith(contextURL):
-            tileRelativeURL = '.' + tileURL[len(contextURL):]
+        #contextURL = absoluteURL(tile.context, self.request)
+        #if tileURL.startswith(contextURL):
+        #    tileURL = '.' + tileURL[len(contextURL):]
 
         notify(ObjectModifiedEvent(tile))
 
         # Get the tile URL, possibly with encoded data
-        IStatusMessage(self.request).addStatusMessage(_(u"Tile saved",), type=u'info')
+        IStatusMessage(self.request).addStatusMessage(
+                _(u"Tile saved",), type=u'info')
 
-        # Calculate the edit URL and append some data in a JSON structure,
-        # to help the UI know what to do.
-
-        url = getEditTileURL(tile, self.request)
-
-        tileDataJson = {}
-        tileDataJson['action'] = "save"
-        tileDataJson['mode'] = "edit"
-        tileDataJson['url'] = tileRelativeURL
-        tileDataJson['tile_type'] = typeName
-        tileDataJson['id'] = tile.id
-
-        url = appendJSONData(url, 'tiledata', tileDataJson)
-        self.request.response.redirect(url)
+        self.request.response.redirect(tileURL)
 
     @button.buttonAndHandler(_(u'Cancel'), name='cancel')
     def handleCancel(self, action):

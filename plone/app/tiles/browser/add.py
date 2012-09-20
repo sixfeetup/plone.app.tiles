@@ -1,21 +1,19 @@
-from z3c.form import form, button
-from plone.z3cform import layout
+from zope.component import getUtility
 
 from zope.lifecycleevent import ObjectCreatedEvent, ObjectAddedEvent
 from zope.event import notify
 
-from zope.component import getMultiAdapter
 from zope.traversing.browser.absoluteurl import absoluteURL
 
 from Products.statusmessages.interfaces import IStatusMessage
 from Products.Five.browser.pagetemplatefile import ViewPageTemplateFile
 
+from z3c.form import form, button
+from plone.z3cform import layout
+from plone.uuid.interfaces import IUUIDGenerator
 from plone.tiles.interfaces import ITileDataManager
 
-from plone.app.blocks.layoutbehavior import ILayoutAware
-
 from plone.app.tiles.browser.base import TileForm
-from plone.app.tiles.utils import getEditTileURL, appendJSONData
 from plone.app.tiles import MessageFactory as _
 
 
@@ -25,6 +23,8 @@ class DefaultAddForm(TileForm, form.Form):
     This form is capable of rendering the fields of any tile schema as defined
     by an ITileType utility.
     """
+
+    name = "add_tile"
 
     # Set during traversal
     tileType = None
@@ -54,20 +54,12 @@ class DefaultAddForm(TileForm, form.Form):
 
         typeName = self.tileType.__name__
 
-        context = self.context
-
-        # Look up if our context supports tiles, if not
-        # pick default view instead
-        if not ILayoutAware(context, None):
-            default_page_view = getMultiAdapter((context, self.request),
-                                                name='default_page')
-            default_page = default_page_view.getDefaultPage()
-            context = default_page and context[default_page] or context
-            context = ILayoutAware(context, None)
+        generator = getUtility(IUUIDGenerator)
+        tileId = generator()
 
         # Traverse to a new tile in the context, with no data
-        tile = context.restrictedTraverse(
-            '@@%s/%s' % (typeName, self.tileId,))
+        tile = self.context.restrictedTraverse(
+            '@@%s/%s' % (typeName, tileId,))
 
         dataManager = ITileDataManager(tile)
         dataManager.set(data)
@@ -82,7 +74,7 @@ class DefaultAddForm(TileForm, form.Form):
             tileRelativeURL = '.' + tileURL[len(contextURL):]
 
         notify(ObjectCreatedEvent(tile))
-        notify(ObjectAddedEvent(tile, self.context, self.tileId))
+        notify(ObjectAddedEvent(tile, self.context, tileId))
 
         IStatusMessage(self.request).addStatusMessage(
                 _(u"Tile created at ${url}",
@@ -90,20 +82,7 @@ class DefaultAddForm(TileForm, form.Form):
                 type=u'info',
             )
 
-        # Calculate the edit URL and append some data in a JSON structure,
-        # to help the UI know what to do.
-
-        url = getEditTileURL(tile, self.request)
-
-        tileDataJson = {}
-        tileDataJson['action'] = "save"
-        tileDataJson['mode'] = "add"
-        tileDataJson['url'] = tileRelativeURL
-        tileDataJson['tile_type'] = typeName
-        tileDataJson['id'] = tile.id
-
-        url = appendJSONData(url, 'tiledata', tileDataJson)
-        self.request.response.redirect(url)
+        self.request.response.redirect(tileURL)
 
     @button.buttonAndHandler(_(u'Cancel'), name='cancel')
     def handleCancel(self, action):
